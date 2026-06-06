@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import SimplePeer from 'simple-peer'
 import socket from '../socket'
 
 function Receiver({ roomId }) {
@@ -10,20 +9,25 @@ function Receiver({ roomId }) {
   const [fileSize, setFileSize] = useState(0)
   const [error, setError] = useState('')
 
-  const peerRef = useRef(null)
-  // store incoming chunks here
+  const pcRef = useRef(null)
   const chunksRef = useRef([])
   const pendingHashRef = useRef(null)
   const receivedRef = useRef(0)
   const startTimeRef = useRef(null)
   const fileMetaRef = useRef(null)
 
+  const iceConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  }
+
   useEffect(() => {
-    // join the room
     socket.emit('join-room', roomId)
 
     socket.on('room-not-found', () => {
-      setError('Room not found. The link may be invalid or expired.')
+      setError('Room not found. Link may be invalid or expired.')
       setStatus('error')
     })
 
@@ -34,41 +38,66 @@ function Receiver({ roomId }) {
 
     socket.on('joined-room', () => {
       setStatus('waiting-for-offer')
+      console.log('joined room, waiting for offer...')
     })
 
-    // got offer from sender, send back answer
-    socket.on('offer', (offer) => {
+    socket.on('offer', async (offer) => {
+      console.log('got offer from sender')
       setStatus('connecting')
 
-      // receiver is NOT the initiator
-      const peer = new SimplePeer({ initiator: false, trickle: false })
-      peerRef.current = peer
+      const pc = new RTCPeerConnection(iceConfig)
+      pcRef.current = pc
 
-      peer.signal(offer)
+      // when sender opens data channel, we receive files here
+      pc.ondatachannel = (e) => {
+        const dataChannel = e.channel
+        dataChannel.binaryType = 'arraybuffer'
 
-      peer.on('signal', (answer) => {
-        socket.emit('answer', { roomId, answer })
-      })
+        dataChannel.onopen = () => {
+          console.log('data channel open on receiver!')
+          setStatus('connected')
+          startTimeRef.current = Date.now()
+        }
 
-      peer.on('connect', () => {
-        setStatus('connected')
-        startTimeRef.current = Date.now()
-      })
+        dataChannel.onmessage = (e) => handleIncomingData(e.data)
+        dataChannel.onerror = (e) => console.error('data channel error:', e)
+      }
 
-      // handle incoming data
-      peer.on('data', (data) => {
-        handleIncomingData(data)
-      })
+      // send ice candidates to sender
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          socket.emit('ice-candidate', { roomId, candidate: e.candidate })
+        }
+      }
 
-      peer.on('error', (err) => {
-        console.error('peer error:', err)
-        setStatus('error')
-      })
+      pc.onconnectionstatechange = () => {
+        console.log('connection state:', pc.connectionState)
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+          setStatus('disconnected')
+        }
+      }
+
+      // set remote offer and create answer
+      await pc.setRemoteDescription(new RTCSessionDescription(offer))
+      const answer = await pc.createAnswer()
+      await pc.setLocalDescription(answer)
+      console.log('sending answer...')
+      socket.emit('answer', { roomId, answer })
+    })
+
+    socket.on('ice-candidate', async (candidate) => {
+      if (pcRef.current) {
+        try {
+          await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch (e) {
+          console.error('ice error:', e)
+        }
+      }
     })
 
     socket.on('peer-disconnected', () => {
       setStatus('disconnected')
-      if (peerRef.current) peerRef.current.destroy()
+      if (pcRef.current) pcRef.current.close()
     })
 
     return () => {
@@ -76,63 +105,50 @@ function Receiver({ roomId }) {
       socket.off('room-full')
       socket.off('joined-room')
       socket.off('offer')
+      socket.off('ice-candidate')
       socket.off('peer-disconnected')
     }
   }, [roomId])
 
   const handleIncomingData = async (data) => {
-    // check if it's a text message or binary chunk
-    if (typeof data === 'string' || data instanceof Uint8Array && isJsonLike(data)) {
+    // check if it's a text message
+    if (typeof data === 'string') {
       try {
-        const text = typeof data === 'string' ? data : new TextDecoder().decode(data)
-        const msg = JSON.parse(text)
-
+        const msg = JSON.parse(data)
         if (msg.type === 'file-meta') {
-          // store file info
           fileMetaRef.current = { name: msg.name, size: msg.size, fileType: msg.fileType }
           setFileName(msg.name)
           setFileSize(msg.size)
+          return
         }
-
         if (msg.type === 'chunk-hash') {
-          // save hash, next message will be the chunk
           pendingHashRef.current = msg.hash
+          return
         }
-
         if (msg.type === 'file-done') {
-          // reassemble and download
           assembleAndDownload()
+          return
         }
-      } catch {
-        // not json, treat as binary chunk
-        await handleChunk(data)
+      } catch (e) {
+        console.error('parse error:', e)
       }
-    } else {
-      await handleChunk(data)
+      return
     }
-  }
 
-  const isJsonLike = (data) => {
-    try {
-      const text = new TextDecoder().decode(data)
-      return text.trim().startsWith('{')
-    } catch {
-      return false
-    }
+    // it's a binary chunk
+    await handleChunk(data)
   }
 
   const handleChunk = async (chunkData) => {
     const buffer = chunkData instanceof ArrayBuffer ? chunkData : chunkData.buffer
 
-    // verify chunk hash
+    // verify hash
     if (pendingHashRef.current) {
       const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
       const hashArray = Array.from(new Uint8Array(hashBuffer))
       const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-
       if (hash !== pendingHashRef.current) {
-        console.error('chunk hash mismatch! chunk may be corrupted')
-        // still store it but log the error
+        console.error('chunk hash mismatch!')
       }
       pendingHashRef.current = null
     }
@@ -143,28 +159,21 @@ function Receiver({ roomId }) {
     if (fileMetaRef.current) {
       const pct = Math.round((receivedRef.current / fileMetaRef.current.size) * 100)
       setProgress(pct)
-
-      // calculate speed
       const elapsed = (Date.now() - startTimeRef.current) / 1000
-      const mbReceived = receivedRef.current / (1024 * 1024)
-      setSpeed((mbReceived / elapsed).toFixed(2))
+      setSpeed(((receivedRef.current / (1024 * 1024)) / elapsed).toFixed(2))
     }
   }
 
   const assembleAndDownload = () => {
-    // put all chunks together
     const blob = new Blob(chunksRef.current, {
       type: fileMetaRef.current?.fileType || 'application/octet-stream'
     })
-
-    // auto trigger download
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = fileMetaRef.current?.name || 'downloaded-file'
     a.click()
     URL.revokeObjectURL(url)
-
     setStatus('done')
   }
 
@@ -182,20 +191,17 @@ function Receiver({ roomId }) {
           <p className="text-red-400">{error}</p>
         </div>
       )}
-
       {status === 'joining' && (
         <div className="mt-4 bg-gray-800 rounded-xl p-4 text-center">
           <p className="text-gray-400">🔌 Joining room...</p>
         </div>
       )}
-
       {(status === 'waiting-for-offer' || status === 'connecting') && (
         <div className="mt-4 bg-blue-900/30 border border-blue-700 rounded-xl p-4 text-center">
           <p className="text-blue-400">🔗 Connecting to sender...</p>
         </div>
       )}
-
-      {(status === 'connected') && (
+      {status === 'connected' && (
         <div className="mt-4 bg-indigo-900/30 border border-indigo-700 rounded-xl p-4">
           <p className="text-indigo-400 text-center mb-1">📥 Receiving: {fileName}</p>
           <p className="text-gray-400 text-sm text-center mb-3">
@@ -206,19 +212,16 @@ function Receiver({ roomId }) {
               style={{ width: `${progress}%` }} />
           </div>
           <div className="flex justify-between mt-2 text-sm text-gray-400">
-            <span>{progress}%</span>
-            <span>{speed} MB/s</span>
+            <span>{progress}%</span><span>{speed} MB/s</span>
           </div>
         </div>
       )}
-
       {status === 'done' && (
         <div className="mt-4 bg-green-900/30 border border-green-700 rounded-xl p-4 text-center">
           <p className="text-green-400 text-lg font-semibold">✅ File downloaded!</p>
           <p className="text-gray-400 text-sm mt-1">{fileName}</p>
         </div>
       )}
-
       {status === 'disconnected' && (
         <div className="mt-4 bg-red-900/30 border border-red-700 rounded-xl p-4 text-center">
           <p className="text-red-400">❌ Sender disconnected</p>

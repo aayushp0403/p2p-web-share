@@ -60,20 +60,23 @@ io.on('connection', (socket) => {
 
   // pass webrtc offer from sender to receiver
   socket.on('offer', ({ roomId, offer }) => {
-    socket.to(roomId).emit('offer', offer)
     console.log('offer sent in room:', roomId)
+    socket.to(roomId).emit('offer', offer)
+    
   })
 
   // pass webrtc answer from receiver to sender
   socket.on('answer', ({ roomId, answer }) => {
-    socket.to(roomId).emit('answer', answer)
     console.log('answer sent in room:', roomId)
+    socket.to(roomId).emit('answer', answer)
+    
   })
 
   // pass ice candidates between peers
-  socket.on('ice-candidate', ({ roomId, candidate }) => {
-    socket.to(roomId).emit('ice-candidate', candidate)
-  })
+    socket.on('ice-candidate', ({ roomId, candidate }) => {
+        console.log('ice candidate in room:', roomId)
+        socket.to(roomId).emit('ice-candidate', candidate)
+    })
 
   // handle disconnection
   socket.on('disconnect', () => {
