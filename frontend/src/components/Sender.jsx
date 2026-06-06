@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import socket from '../socket'
 
 function Sender() {
+    const [copied, setCopied] = useState(false)
   const [file, setFile] = useState(null)
   const [shareLink, setShareLink] = useState('')
   const [isDragging, setIsDragging] = useState(false)
@@ -187,6 +188,13 @@ function Sender() {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
+        {/* copy toast notification */}
+        {copied && (
+        <div className="fixed top-4 right-4 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2 animate-pulse">
+            <span>✅</span>
+            <span className="font-medium">Link copied!</span>
+        </div>
+        )}
       {/* file drop zone */}
       <div
         onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
@@ -242,7 +250,9 @@ function Sender() {
             <input readOnly value={shareLink}
               className="flex-1 bg-gray-800 text-indigo-300 text-sm rounded-xl px-4 py-3 outline-none font-mono" />
             <button onClick={() => {
-              navigator.clipboard.writeText(shareLink)
+                navigator.clipboard.writeText(shareLink)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
             }}
               className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap">
               Copy Link
