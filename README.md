@@ -139,9 +139,14 @@ VITE_BACKEND_URL=http://localhost:3001
 
 ## 📸 Screenshots
 
-> Sender — drop file and generate link
+### Home Page
+![Home](screenshots/home.png)
 
-> Receiver — download complete
+### Sender — Share Link Generated
+![Sender](screenshots/sender.png)
+
+### Transfer and Receiver — Download Complete
+![Complete](screenshots/receiver.png)
 
 ---
 
