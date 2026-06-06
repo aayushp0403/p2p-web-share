@@ -186,85 +186,125 @@ function Sender() {
   }, [])
 
   return (
-    <div className="w-full max-w-lg mx-auto">
-      <h2 className="text-2xl font-bold text-white mb-6 text-center">Send a File</h2>
-
+    <div className="w-full max-w-2xl mx-auto">
+      {/* file drop zone */}
       <div
         onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
         onClick={() => status === 'idle' && fileInputRef.current.click()}
-        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-200
-          ${isDragging ? 'border-indigo-400 bg-indigo-900/20' : 'border-gray-600 hover:border-indigo-500 hover:bg-gray-800/50'}`}
+        className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200
+          ${isDragging
+            ? 'border-indigo-400 bg-indigo-900/20 scale-105'
+            : 'border-gray-700 hover:border-indigo-500 hover:bg-gray-900/50'
+          } ${status !== 'idle' ? 'cursor-default' : ''}`}
       >
-        <div className="text-4xl mb-3">📂</div>
+        <div className="text-5xl mb-4">
+          {file ? '📄' : '📂'}
+        </div>
         {file ? (
           <div>
-            <p className="text-green-400 font-medium">{file.name}</p>
-            <p className="text-gray-400 text-sm mt-1">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+            <p className="text-green-400 font-semibold text-lg">{file.name}</p>
+            <p className="text-gray-400 text-sm mt-1">
+              {(file.size / (1024 * 1024)).toFixed(2)} MB
+            </p>
           </div>
         ) : (
           <div>
-            <p className="text-gray-300">Drag & drop a file here</p>
+            <p className="text-gray-200 text-lg font-medium">Drop your file here</p>
             <p className="text-gray-500 text-sm mt-1">or click to browse</p>
-            <p className="text-gray-600 text-xs mt-2">Max 50MB</p>
+            <p className="text-gray-600 text-xs mt-3 bg-gray-800 inline-block px-3 py-1 rounded-full">
+              Max 50MB
+            </p>
           </div>
         )}
         <input ref={fileInputRef} type="file" className="hidden"
           onChange={(e) => handleFile(e.target.files[0])} />
       </div>
 
-      {error && <p className="text-red-400 text-sm mt-3 text-center">{error}</p>}
+      {error && (
+        <div className="mt-3 bg-red-900/20 border border-red-800 rounded-xl p-3 text-center">
+          <p className="text-red-400 text-sm">⚠️ {error}</p>
+        </div>
+      )}
 
+      {/* generate link button */}
       {file && status === 'idle' && (
         <button onClick={createRoom}
-          className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-colors">
-          Generate Share Link
+          className="w-full mt-4 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold py-4 rounded-2xl transition-all duration-150 text-lg">
+          Generate Share Link →
         </button>
       )}
 
+      {/* share link box */}
       {shareLink && (
-        <div className="mt-4 bg-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-sm mb-2">Share this link:</p>
+        <div className="mt-4 bg-gray-900 border border-gray-700 rounded-2xl p-5">
+          <p className="text-gray-400 text-sm mb-3 font-medium">📎 Share this link with the receiver:</p>
           <div className="flex gap-2">
             <input readOnly value={shareLink}
-              className="flex-1 bg-gray-700 text-white text-sm rounded-lg px-3 py-2 outline-none" />
-            <button onClick={() => navigator.clipboard.writeText(shareLink)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-              Copy
+              className="flex-1 bg-gray-800 text-indigo-300 text-sm rounded-xl px-4 py-3 outline-none font-mono" />
+            <button onClick={() => {
+              navigator.clipboard.writeText(shareLink)
+            }}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap">
+              Copy Link
             </button>
           </div>
         </div>
       )}
 
+      {/* status cards */}
       {status === 'waiting' && (
-        <div className="mt-4 bg-yellow-900/30 border border-yellow-700 rounded-xl p-4 text-center">
-          <p className="text-yellow-400">⏳ Waiting for receiver to join...</p>
+        <div className="mt-4 bg-yellow-900/20 border border-yellow-800/50 rounded-2xl p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+            <p className="text-yellow-300 font-medium">Waiting for receiver to open the link...</p>
+          </div>
+          <p className="text-gray-500 text-xs mt-2 ml-5">Keep this tab open</p>
         </div>
       )}
+
       {status === 'connecting' && (
-        <div className="mt-4 bg-blue-900/30 border border-blue-700 rounded-xl p-4 text-center">
-          <p className="text-blue-400">🔗 Establishing P2P connection...</p>
+        <div className="mt-4 bg-blue-900/20 border border-blue-800/50 rounded-2xl p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+            <p className="text-blue-300 font-medium">Establishing direct P2P connection...</p>
+          </div>
         </div>
       )}
+
       {status === 'connected' && (
-        <div className="mt-4 bg-indigo-900/30 border border-indigo-700 rounded-xl p-4">
-          <p className="text-indigo-400 text-center mb-3">📡 Transferring...</p>
-          <div className="w-full bg-gray-700 rounded-full h-3">
-            <div className="bg-indigo-500 h-3 rounded-full transition-all duration-300"
+        <div className="mt-4 bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
+              <p className="text-indigo-300 font-medium">Transferring {file?.name}</p>
+            </div>
+            <span className="text-gray-400 text-sm">{speed} MB/s</span>
+          </div>
+          <div className="w-full bg-gray-800 rounded-full h-2.5">
+            <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }} />
           </div>
-          <div className="flex justify-between mt-2 text-sm text-gray-400">
-            <span>{progress}%</span><span>{speed} MB/s</span>
+          <div className="flex justify-between mt-2">
+            <span className="text-gray-400 text-sm">{progress}% complete</span>
+            <span className="text-gray-400 text-sm">
+              {((file?.size || 0) / (1024 * 1024)).toFixed(2)} MB
+            </span>
           </div>
         </div>
       )}
+
       {status === 'done' && (
-        <div className="mt-4 bg-green-900/30 border border-green-700 rounded-xl p-4 text-center">
-          <p className="text-green-400">✅ Transfer complete!</p>
+        <div className="mt-4 bg-green-900/20 border border-green-800/50 rounded-2xl p-5 text-center">
+          <div className="text-3xl mb-2">✅</div>
+          <p className="text-green-400 font-semibold text-lg">Transfer complete!</p>
+          <p className="text-gray-500 text-sm mt-1">{file?.name} was sent successfully</p>
         </div>
       )}
+
       {status === 'disconnected' && (
-        <div className="mt-4 bg-red-900/30 border border-red-700 rounded-xl p-4 text-center">
-          <p className="text-red-400">❌ Peer disconnected</p>
+        <div className="mt-4 bg-red-900/20 border border-red-800/50 rounded-2xl p-5 text-center">
+          <p className="text-red-400 font-medium">❌ Peer disconnected</p>
+          <p className="text-gray-500 text-sm mt-1">Refresh to start a new transfer</p>
         </div>
       )}
     </div>

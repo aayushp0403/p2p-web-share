@@ -179,52 +179,84 @@ function Receiver({ roomId }) {
 
   return (
     <div className="w-full max-w-lg mx-auto">
-      <h2 className="text-2xl font-bold text-white mb-6 text-center">Receive a File</h2>
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-white mb-2">Receiving a File</h1>
+        <p className="text-gray-400">Direct transfer from sender's browser</p>
+      </div>
 
-      <div className="bg-gray-800 rounded-xl p-6">
+      {/* room id card */}
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-4">
         <p className="text-gray-400 text-sm text-center mb-1">Room ID</p>
-        <p className="text-indigo-400 font-mono text-center text-lg font-bold">{roomId}</p>
+        <p className="text-indigo-400 font-mono text-center text-xl font-bold tracking-widest">
+          {roomId}
+        </p>
       </div>
 
       {error && (
-        <div className="mt-4 bg-red-900/30 border border-red-700 rounded-xl p-4 text-center">
-          <p className="text-red-400">{error}</p>
+        <div className="bg-red-900/20 border border-red-800/50 rounded-2xl p-5 text-center">
+          <p className="text-red-400 font-medium">⚠️ {error}</p>
+          <p className="text-gray-500 text-sm mt-1">Ask the sender for a new link</p>
         </div>
       )}
+
       {status === 'joining' && (
-        <div className="mt-4 bg-gray-800 rounded-xl p-4 text-center">
-          <p className="text-gray-400">🔌 Joining room...</p>
+        <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
+            <p className="text-gray-300">Joining room...</p>
+          </div>
         </div>
       )}
+
       {(status === 'waiting-for-offer' || status === 'connecting') && (
-        <div className="mt-4 bg-blue-900/30 border border-blue-700 rounded-xl p-4 text-center">
-          <p className="text-blue-400">🔗 Connecting to sender...</p>
+        <div className="bg-blue-900/20 border border-blue-800/50 rounded-2xl p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+            <p className="text-blue-300 font-medium">Connecting to sender...</p>
+          </div>
+          <p className="text-gray-500 text-xs mt-2 ml-5">
+            Establishing direct P2P connection
+          </p>
         </div>
       )}
+
       {status === 'connected' && (
-        <div className="mt-4 bg-indigo-900/30 border border-indigo-700 rounded-xl p-4">
-          <p className="text-indigo-400 text-center mb-1">📥 Receiving: {fileName}</p>
-          <p className="text-gray-400 text-sm text-center mb-3">
-            {(fileSize / (1024 * 1024)).toFixed(2)} MB
-          </p>
-          <div className="w-full bg-gray-700 rounded-full h-3">
-            <div className="bg-indigo-500 h-3 rounded-full transition-all duration-300"
+        <div className="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
+              <p className="text-indigo-300 font-medium">📥 {fileName}</p>
+            </div>
+            <span className="text-gray-400 text-sm">{speed} MB/s</span>
+          </div>
+          <div className="w-full bg-gray-800 rounded-full h-2.5">
+            <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }} />
           </div>
-          <div className="flex justify-between mt-2 text-sm text-gray-400">
-            <span>{progress}%</span><span>{speed} MB/s</span>
+          <div className="flex justify-between mt-2">
+            <span className="text-gray-400 text-sm">{progress}% received</span>
+            <span className="text-gray-400 text-sm">
+              {(fileSize / (1024 * 1024)).toFixed(2)} MB
+            </span>
           </div>
         </div>
       )}
+
       {status === 'done' && (
-        <div className="mt-4 bg-green-900/30 border border-green-700 rounded-xl p-4 text-center">
-          <p className="text-green-400 text-lg font-semibold">✅ File downloaded!</p>
-          <p className="text-gray-400 text-sm mt-1">{fileName}</p>
+        <div className="bg-green-900/20 border border-green-800/50 rounded-2xl p-6 text-center">
+          <div className="text-4xl mb-3">✅</div>
+          <p className="text-green-400 text-xl font-bold">Download complete!</p>
+          <p className="text-gray-300 mt-2">{fileName}</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {(fileSize / (1024 * 1024)).toFixed(2)} MB received successfully
+          </p>
         </div>
       )}
+
       {status === 'disconnected' && (
-        <div className="mt-4 bg-red-900/30 border border-red-700 rounded-xl p-4 text-center">
-          <p className="text-red-400">❌ Sender disconnected</p>
+        <div className="bg-red-900/20 border border-red-800/50 rounded-2xl p-5 text-center">
+          <p className="text-red-400 font-medium">❌ Sender disconnected</p>
+          <p className="text-gray-500 text-sm mt-1">The transfer was interrupted</p>
         </div>
       )}
     </div>
