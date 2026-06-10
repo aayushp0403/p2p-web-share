@@ -8,6 +8,8 @@
 
 ## 🚀 What is this?
 
+https://github.com/user-attachments/assets/543e7712-c068-4039-b438-33218e493aaf
+
 P2P Web Share lets you transfer files directly between two browsers using WebRTC.
 The file **never touches the server** — the backend only handles the initial
 WebRTC handshake (signaling), after which the two browsers talk directly.
